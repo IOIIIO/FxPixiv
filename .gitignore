@@ -133,3 +133,7 @@ get-pip.py
 
 imgs/*
 auth/*
+
+*.db
+*.db-shm
+*.db-wal
