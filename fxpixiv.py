@@ -7,7 +7,7 @@ from pixivpy3 import AppPixivAPI
 
 sys.dont_write_bytecode = True
 
-# get your refresh_token, and replace _REFRESH_TOKEN
+# get your refresh_token, and replac _REFRESH_TOKEN
 #  https://github.com/upbit/pixivpy/issues/158#issuecomment-778919084
 _REFRESH_TOKEN = ""
 
