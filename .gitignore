@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# PIP3
+get-pip.py
+
+illusts/*
+auth/*
