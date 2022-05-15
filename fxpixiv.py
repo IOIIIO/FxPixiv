@@ -9,10 +9,6 @@ from pixivpy3 import AppPixivAPI
 
 sys.dont_write_bytecode = True
 
-# get your refresh_token, and replac _REFRESH_TOKEN
-#  https://github.com/upbit/pixivpy/issues/158#issuecomment-778919084
-#_REFRESH_TOKEN = ""
-
 app = Flask(__name__)
 DB = dataset.connect('sqlite:///fxpixiv.db')
 _SETTINGS = DB['settings']
@@ -20,11 +16,14 @@ _SETTINGS = DB['settings']
 _REFRESH_TOKEN = _SETTINGS.find_one(name='refresh')["value"]
 DOMAIN = _SETTINGS.find_one(name='domain')["value"]
 DIRECTORY = _SETTINGS.find_one(name='img_dir')["value"]
+
 API = AppPixivAPI()
 API.auth(refresh_token=_REFRESH_TOKEN)
 
+if not os.path.exists(DIRECTORY):
+    os.makedirs(DIRECTORY)
+
 def appapi_illust(image_id):
-    aapi = API
     if DB["posts"].find_one(id=image_id) != None:
         illust = DB["posts"].find_one(id=image_id)
         illust["tags"] = ast.literal_eval(illust["tags"])
@@ -33,7 +32,7 @@ def appapi_illust(image_id):
         illust["image_urls"] = {}
         illust["image_urls"]["large"] = url
     else:
-        json_result = aapi.illust_detail(image_id)
+        json_result = API.illust_detail(image_id)
         illust = json_result.illust
         data = dict(
             id=illust["id"], 
@@ -46,20 +45,14 @@ def appapi_illust(image_id):
     return illust
 
 def download_image(image_id):
-    directory = DIRECTORY
-    aapi = API
     # get image
     illust = appapi_illust(image_id)
 
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    image_url = illust["meta_single_page"].get(
-        "original_image_url", illust["image_urls"]["large"]
-    )
-    #print("{}: {}".format(illust.title, image_url))
-    if not os.path.exists("./" + directory + "/" + str(image_id) + ".jpg"):
-        aapi.download(image_url, path=directory, fname="%s.jpg" % (image_id))
+    if not os.path.exists("./" + DIRECTORY + "/" + str(image_id) + ".jpg"):
+        image_url = illust["meta_single_page"].get(
+            "original_image_url", illust["image_urls"]["large"]
+        )
+        API.download(image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
     return illust
 
 def webserver(): 
