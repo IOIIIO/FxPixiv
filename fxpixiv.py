@@ -9,7 +9,7 @@ sys.dont_write_bytecode = True
 
 # get your refresh_token, and replace _REFRESH_TOKEN
 #  https://github.com/upbit/pixivpy/issues/158#issuecomment-778919084
-_REFRESH_TOKEN = "***REMOVED***"
+_REFRESH_TOKEN = ""
 
 app = Flask(__name__)
 DOMAIN = "fxpixiv.net"
