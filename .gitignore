@@ -131,5 +131,5 @@ dmypy.json
 # PIP3
 get-pip.py
 
-illusts/*
+imgs/*
 auth/*
