@@ -78,7 +78,13 @@ def show_post(post_id):
         else:
             tags = tags + tag["name"]
         
-    return render_template('meta.html', title=title, desc=tags, url=url)
+    return render_template(
+        'meta.html', 
+        title=title, 
+        desc=tags, 
+        url=url,
+        id=post_id
+        )
 
 if __name__ == "__main__":
     threads = [webserver]
