@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve FxPixiv
+After=network.target
+
+[Service]
+User=fxpixiv
+Group=www-data
+WorkingDirectory=/var/www/FxPixiv
+Environment="PATH=/var/www/FxPixiv/fxpixiv/bin"
+ExecStart=/var/www/FxPixiv/fxpixiv/bin/gunicorn --workers 3 --bind unix:fxpixiv.sock wsgi:app
+
+[Install]
+WantedBy=multi-user.target
