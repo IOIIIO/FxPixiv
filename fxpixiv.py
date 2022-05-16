@@ -1,6 +1,6 @@
 import os
 import sys
-import threading
+import threading, pause
 import dataset
 import ast
 
@@ -18,10 +18,18 @@ DOMAIN = _SETTINGS.find_one(name='domain')["value"]
 DIRECTORY = _SETTINGS.find_one(name='img_dir')["value"]
 
 API = AppPixivAPI()
-API.auth(refresh_token=_REFRESH_TOKEN)
 
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
+
+def refresh_loop():
+    global API
+    while True:
+        API.auth(refresh_token=_REFRESH_TOKEN)
+        print("Token Refreshed")
+        pause.minutes(45)
+
+threading.Thread(target=refresh_loop).start()
 
 def appapi_illust(image_id):
     if DB["posts"].find_one(id=image_id) != None:
