@@ -1,15 +1,18 @@
 import os
 import sys
-import threading, pause
-import dataset
+import threading
 import ast
+import asyncio
+from string import Template
 
-from flask import Flask, render_template
+from fastapi import FastAPI, Response
 from pixivpy3 import AppPixivAPI
+import pause
+import dataset
 
 sys.dont_write_bytecode = True
 
-app = Flask(__name__)
+app = FastAPI()
 DB = dataset.connect('sqlite:///fxpixiv.db')
 _SETTINGS = DB['settings']
 
@@ -18,6 +21,24 @@ DOMAIN = _SETTINGS.find_one(name='domain')["value"]
 DIRECTORY = _SETTINGS.find_one(name='img_dir')["value"]
 
 API = AppPixivAPI()
+
+TEMPLATE = Template("""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FxPixiv</title>
+    <meta property="og:title" content="$title" />
+    <meta property="og:site_name" content="FxPixiv - Fix Pixiv Embeds" />
+    <meta property="og:description" content="$desc" />
+    <meta property="og:image" content="$url" />
+    <meta name="theme-color" content="#55bbee" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta http-equiv="refresh" content="0; url=https://pixiv.net/en/artworks/$id" />
+</head>
+<body>
+</body>
+</html>""")
 
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
@@ -29,9 +50,16 @@ def refresh_loop():
         print("Token Refreshed")
         pause.minutes(45)
 
+def cachepurge_loop():
+    while True:
+        
+        print("Cache Purged")
+        pause.days(3)
+
 threading.Thread(target=refresh_loop).start()
 
-def appapi_illust(image_id):
+async def appapi_illust(image_id):
+    loop = asyncio.get_event_loop()
     if DB["posts"].find_one(id=image_id) != None:
         illust = DB["posts"].find_one(id=image_id)
         illust["tags"] = ast.literal_eval(illust["tags"])
@@ -40,7 +68,8 @@ def appapi_illust(image_id):
         illust["image_urls"] = {}
         illust["image_urls"]["large"] = url
     else:
-        json_result = API.illust_detail(image_id)
+        #json_result = API.illust_detail(image_id)
+        json_result = await loop.run_in_executor(None, API.illust_detail, image_id)
         illust = json_result.illust
         data = dict(
             id=illust["id"], 
@@ -52,28 +81,27 @@ def appapi_illust(image_id):
         DB["posts"].upsert(data, ["id"])
     return illust
 
-def download_image(image_id):
+async def download_image(image_id):
     # get image
-    illust = appapi_illust(image_id)
+    loop = asyncio.get_event_loop()
+    illust = await appapi_illust(image_id)
 
     if not os.path.exists("./" + DIRECTORY + "/" + str(image_id) + ".jpg"):
         image_url = illust["meta_single_page"].get(
             "original_image_url", illust["image_urls"]["large"]
         )
-        API.download(image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
+        #API.download(image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
+        loop.run_in_executor(None, API.download, image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
     return illust
 
-def webserver(): 
-    """Initialises Flask"""
-    app.run(host="0.0.0.0", port=5123)
 
-@app.route('/en/artworks/<int:post_id>')
-@app.route('/artworks/<int:post_id>')
-def show_post(post_id):
+@app.get("/en/artworks/{post_id}")
+@app.get("/artworks/{post_id}")
+async def show_post(post_id: int):
     print("Post ID:" + str(post_id))
     # show the post with the given id, the id is an integer
     tags = ""
-    illust = download_image(post_id)
+    illust = await download_image(post_id)
     title = illust["title"]
     url = "https://" + DOMAIN + "/"+ DIRECTORY +"/" + str(post_id) + ".jpg"
 
@@ -85,16 +113,19 @@ def show_post(post_id):
             tags = tags + tag["translated_name"]
         else:
             tags = tags + tag["name"]
-        
-    return render_template(
-        'meta.html', 
+
+    data = TEMPLATE.substitute(
         title=title, 
         desc=tags, 
         url=url,
         id=post_id
         )
+        
+    return Response(content=data, media_type="application/xml")
 
 if __name__ == "__main__":
-    threads = [webserver]
+    threads = []
     for x in threads:
         threading.Thread(target=x).start()
+
+#
