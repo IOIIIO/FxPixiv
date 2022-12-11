@@ -5,7 +5,8 @@ import ast
 import asyncio
 from string import Template
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, FileResponse
 from pixivpy3 import AppPixivAPI
 import pause
 import dataset
@@ -26,7 +27,7 @@ TEMPLATE = Template("""
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" / >
     <title>FxPixiv</title>
     <meta property="og:title" content="$title" />
     <meta property="og:site_name" content="FxPixiv - Fix Pixiv Embeds" />
@@ -34,6 +35,22 @@ TEMPLATE = Template("""
     <meta property="og:image" content="$url" />
     <meta name="theme-color" content="#55bbee" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta http-equiv="refresh" content="0; url=https://pixiv.net/en/artworks/$id" />
+</head>
+<body>
+</body>
+</html>""")
+
+FAILURE = Template("""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" / >
+    <title>FxPixiv</title>
+    <meta property="og:title" content="Unavailable" />
+    <meta property="og:site_name" content="FxPixiv - Fix Pixiv Embeds" />
+    <meta property="og:description" content="This post has been deleted or is restricted." />
+    <meta name="theme-color" content="#55bbee" />
     <meta http-equiv="refresh" content="0; url=https://pixiv.net/en/artworks/$id" />
 </head>
 <body>
@@ -70,62 +87,65 @@ async def appapi_illust(image_id):
     else:
         #json_result = API.illust_detail(image_id)
         json_result = await loop.run_in_executor(None, API.illust_detail, image_id)
-        illust = json_result.illust
-        data = dict(
-            id=illust["id"], 
-            title=illust["title"], 
-            tags=str(illust["tags"]), 
-            meta_single_page=str(illust["meta_single_page"]),
-            image_urls = str(illust["image_urls"]["large"])
-            )
-        DB["posts"].upsert(data, ["id"])
+        if "error" in json_result or json_result == None:
+            return None
+        else:
+            illust = json_result.illust
+            data = dict(
+                id=illust["id"], 
+                title=illust["title"], 
+                tags=str(illust["tags"]), 
+                meta_single_page=str(illust["meta_single_page"]),
+                image_urls = str(illust["image_urls"]["large"])
+                )
+            DB["posts"].upsert(data, ["id"])
     return illust
 
 async def download_image(image_id):
     # get image
     loop = asyncio.get_event_loop()
     illust = await appapi_illust(image_id)
-
-    if not os.path.exists("./" + DIRECTORY + "/" + str(image_id) + ".jpg"):
-        image_url = illust["meta_single_page"].get(
-            "original_image_url", illust["image_urls"]["large"]
-        )
-        #API.download(image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
-        loop.run_in_executor(None, API.download, image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
+    if illust != None:
+        if not os.path.exists("./" + DIRECTORY + "/" + str(image_id) + ".jpg"):
+            image_url = illust["meta_single_page"].get(
+                "original_image_url", illust["image_urls"]["large"]
+            )
+            #API.download(image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
+            loop.run_in_executor(None, API.download, image_url, '', DIRECTORY, None, False, "%s.jpg" % (image_id))
     return illust
 
 
-@app.get("/en/artworks/{post_id}")
-@app.get("/artworks/{post_id}")
+@app.get("/en/artworks/{post_id}", response_class=HTMLResponse)
+@app.get("/artworks/{post_id}", response_class=HTMLResponse)
 async def show_post(post_id: int):
     print("Post ID:" + str(post_id))
     # show the post with the given id, the id is an integer
     tags = ""
     illust = await download_image(post_id)
-    title = illust["title"]
-    url = "https://" + DOMAIN + "/"+ DIRECTORY +"/" + str(post_id) + ".jpg"
+    if illust != None:
+        title = illust["title"]
+        url = "https://" + DOMAIN + "/"+ DIRECTORY +"/" + str(post_id) + ".jpg"
 
-    for tag in illust["tags"]:
-        if tags != "":
-            tags = tags + ", "
+        for tag in illust["tags"]:
+            if tags != "":
+                tags = tags + ", "
 
-        if tag["translated_name"] != None:
-            tags = tags + tag["translated_name"]
-        else:
-            tags = tags + tag["name"]
+            if tag["translated_name"] != None:
+                tags = tags + tag["translated_name"]
+            else:
+                tags = tags + tag["name"]
 
-    data = TEMPLATE.substitute(
-        title=title, 
-        desc=tags, 
-        url=url,
-        id=post_id
-        )
-        
-    return Response(content=data, media_type="application/xml")
+        return TEMPLATE.substitute(
+            title=title, 
+            desc=tags, 
+            url=url,
+            id=post_id
+            )
+    else:
+        return FAILURE.substitute(
+            id=post_id
+            )
 
-if __name__ == "__main__":
-    threads = []
-    for x in threads:
-        threading.Thread(target=x).start()
-
-#
+@app.get("/imgs/{post_id}.jpg", response_class=HTMLResponse)
+async def show_img(post_id: int):
+    return FileResponse("imgs/{}.jpg".format(post_id))

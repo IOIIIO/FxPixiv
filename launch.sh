@@ -13,4 +13,4 @@ else
     source fxpixiv/bin/activate
 fi
 
-python3 -m pip install -U requests fastapi[all] pixivpy dataset pause
+python3 -m pip install -U requests fastapi uvicorn pixivpy dataset pause
