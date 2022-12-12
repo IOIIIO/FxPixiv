@@ -1,5 +1,5 @@
 [Unit]
-Description=Gunicorn instance to serve FxPixiv
+Description=Script to automatically purge FxPixiv cache
 After=network.target
 
 [Service]
@@ -7,7 +7,7 @@ User=fxpixiv
 Group=www-data
 WorkingDirectory=/var/www/FxPixiv
 Environment="PATH=/var/www/FxPixiv/fxpixiv/bin"
-ExecStart=/var/www/FxPixiv/fxpixiv/bin/gunicorn --workers 3 --bind unix:fxpixiv.sock wsgi:app
+ExecStart=/var/www/FxPixiv/fxpixiv/bin/python3 sync.py
 
 [Install]
 WantedBy=multi-user.target

@@ -20,7 +20,7 @@ _SETTINGS = DB['settings']
 
 _REFRESH_TOKEN = _SETTINGS.find_one(name='refresh')["value"]
 DOMAIN = _SETTINGS.find_one(name='domain')["value"]
-CDNDOMAIN = "cdn.fxpixiv.net"
+CDNDOMAIN = _SETTINGS.find_one(name='cdn_domain')["value"]
 DIRECTORY = _SETTINGS.find_one(name='img_dir')["value"]
 
 API = AppPixivAPI()

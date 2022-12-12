@@ -1,0 +1,13 @@
+[Unit]
+Description=Uvicorn instance to serve FxPixiv
+After=network.target
+
+[Service]
+User=fxpixiv
+Group=www-data
+WorkingDirectory=/var/www/FxPixiv
+Environment="PATH=/var/www/FxPixiv/fxpixiv/bin"
+ExecStart=/var/www/FxPixiv/fxpixiv/bin/uvicorn --workers 3 --uds unix:fxpixiv.sock fxpixiv:app
+
+[Install]
+WantedBy=multi-user.target
