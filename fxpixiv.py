@@ -4,9 +4,10 @@ import threading
 import ast
 import asyncio
 from string import Template
+import requests
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from pixivpy3 import AppPixivAPI
 import pause
 import dataset
@@ -19,6 +20,7 @@ _SETTINGS = DB['settings']
 
 _REFRESH_TOKEN = _SETTINGS.find_one(name='refresh')["value"]
 DOMAIN = _SETTINGS.find_one(name='domain')["value"]
+CDNDOMAIN = "cdn.fxpixiv.net"
 DIRECTORY = _SETTINGS.find_one(name='img_dir')["value"]
 
 API = AppPixivAPI()
@@ -67,12 +69,6 @@ def refresh_loop():
         print("Token Refreshed")
         pause.minutes(45)
 
-def cachepurge_loop():
-    while True:
-        
-        print("Cache Purged")
-        pause.days(3)
-
 threading.Thread(target=refresh_loop).start()
 
 async def appapi_illust(image_id):
@@ -107,11 +103,13 @@ async def download_image(image_id):
     illust = await appapi_illust(image_id)
     if illust != None:
         if not os.path.exists("./" + DIRECTORY + "/" + str(image_id) + ".jpg"):
-            image_url = illust["meta_single_page"].get(
-                "original_image_url", illust["image_urls"]["large"]
-            )
-            #API.download(image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
-            loop.run_in_executor(None, API.download, image_url, '', DIRECTORY, None, False, "%s.jpg" % (image_id))
+            url = "https://" + CDNDOMAIN + "/"+ DIRECTORY +"/" + str(image_id) + ".jpg"
+            if not requests.head(url).ok:
+                image_url = illust["meta_single_page"].get(
+                    "original_image_url", illust["image_urls"]["large"]
+                )
+                #API.download(image_url, path=DIRECTORY, fname="%s.jpg" % (image_id))
+                loop.run_in_executor(None, API.download, image_url, '', DIRECTORY, None, False, "%s.jpg" % (image_id))
     return illust
 
 
@@ -148,4 +146,9 @@ async def show_post(post_id: int):
 
 @app.get("/imgs/{post_id}.jpg", response_class=HTMLResponse)
 async def show_img(post_id: int):
-    return FileResponse("imgs/{}.jpg".format(post_id))
+    path = "imgs/{}.jpg".format(post_id)
+    if os.path.isfile(path):
+        return FileResponse(path)
+    else:
+        url = "https://" + CDNDOMAIN + "/"+ DIRECTORY +"/" + str(post_id) + ".jpg"
+        return RedirectResponse(url)

@@ -12,7 +12,8 @@
             "args": [
                 "fxpixiv:app",
                 "--port", "80",
-                "--host", "0.0.0.0"
+                "--host", "0.0.0.0",
+                "--workers", "3"
             ],
             "jinja": true,
             "justMyCode": true
