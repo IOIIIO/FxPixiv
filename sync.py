@@ -31,18 +31,19 @@ s3_client = boto3.client('s3',
  
 
 def upload(myfile):
-    s3_client.upload_file(myfile, CDNBUCKET, myfile) 
+    s3_client.upload_file(myfile, CDNBUCKET, myfile, ExtraArgs={'ACL':'public-read'}) 
     os.remove(myfile)
+    #print(myfile)
 
 def get_files():
     batched_filenames = []
     purge_filenames = []
-    raw_filenames =  sorted(glob.glob("{}/*.jpg".format(DIRECTORY)), key=os.path.getctime)
+    raw_filenames =  sorted(glob.glob("{}/*.jpg".format(DIRECTORY)), key=os.path.getctime, reverse=True)
 
     total = len(raw_filenames)
     del_perc = math.ceil(total*CACHE_PERCENTAGE)
 
-    if del_perc <= CACHE_MIN:
+    if del_perc >= CACHE_MIN:
         purge_filenames = raw_filenames[del_perc:]
     else:
         purge_filenames = raw_filenames[CACHE_MIN:]
@@ -65,4 +66,4 @@ if __name__ == "__main__":
     while True:
         total = purge()
         print("Purged {} files".format(total))
-        pause.minutes(1)
+        pause.days(4)
